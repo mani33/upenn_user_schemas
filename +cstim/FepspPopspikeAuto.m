@@ -1,19 +1,19 @@
 %{
-cstim.FepspPopspike (computed) # compute raising or falling slope of epsp
+cstim.FepspPopspikeAuto (computed) # compute raising or falling slope of epsp
 -> cstim.FpRespTrace
 ---
 popspike_height   : double       # popspike height in mV
 %}
 
-classdef FepspPopspike < dj.Relvar & dj.AutoPopulate
+classdef FepspPopspikeAuto < dj.Relvar & dj.AutoPopulate
     
     properties(Constant)
-        table = dj.Table('cstim.FepspPopspike')
-        popRel = cstim.FpRespTrace - acq.EventsIgnore
+        table = dj.Table('cstim.FepspPopspikeAuto')
+        popRel = cstim.FpRespTrace & cstim.PopspikeEg
     end
     
     methods
-        function self = FepspPopspike(varargin)
+        function self = FepspPopspikeAuto(varargin)
             self.restrict(varargin{:})
         end
     end
@@ -21,27 +21,28 @@ classdef FepspPopspike < dj.Relvar & dj.AutoPopulate
     methods(Access=protected)
         function makeTuples(self, key)
             d = fetch(cstim.FpRespTrace(key)*cont.Fp,'y','t','sampling_rate');
-            y = zscore(d.y);
+            y = d.y;
             Fs = d.sampling_rate;
             sk = cstim.getGausswin(0.5,1000*1/Fs);
             yso = mconv(y,sk);
-            t = d.t/1000;
             
             clf
-            plot(t,y,'k')
+            t = d.t;
+            plot(t,y,'b')
             hold all
-            plot(t,yso,'r')
-            xlim([-2 50])
+            plot(t,yso,'k')
             
-            % Set ylimit
+            xlim([-2000 50000])
+            % Compute ylimit
             st = std(yso);
-            ylim([min(yso) max(yso)]+st*[-0.5 0.5])
-            % Ginput the start and end points to calculate slope
-            title('Click the beginning and end each hill on either side of the popspike')
-%             pause % This allows for zooming the trace
-            [bounds,~] = ginput(4);
+            ylim([min(yso) max(yso)]+0.5*[-st st])
             
-            [h,tt,yy,ypi] = get_popspike_height(t,y,bounds,'auto',false);
+            
+            xt = get(gca,'XTick');
+            set(gca,'XTick',xt,'xticklabel',xt/1000)
+            
+            bounds = fetch1(cstim.PopspikeEg(key),'popspike_bounds');
+            [h,tt,yy,ypi] = get_popspike_height(t,y,bounds([1 end]),'auto',true);
             if isnan(h)
                 h = -1;
             end
@@ -55,9 +56,10 @@ classdef FepspPopspike < dj.Relvar & dj.AutoPopulate
             xlabel('Time(ms)')
             title('PopSpike')
             box off
-            pause
+            pause(0.1)
             self.insert(key)
             
         end
-    end    
+    end
+    
 end

@@ -25,23 +25,46 @@ classdef FepspPopspike < dj.Relvar & dj.AutoPopulate
             Fs = d.sampling_rate;
             sk = cstim.getGausswin(0.5,1000*1/Fs);
             yso = mconv(y,sk);
-            t = d.t/1000;
             
-            clf
-            plot(t,y,'k')
-            hold all
-            plot(t,yso,'r')
-            xlim([-2 50])
+%             clf
+            t = d.t;
+%             plot(t,y,'b')
+%             hold all
+%             plot(t,yso,'k')
+%             
+%             xlim([-2000 50000])
+%             % Compute ylimit
+%             st = std(yso);
+%             ylim([min(yso) max(yso)]+0.5*[-st st])
+%             
+%             
+%             xt = get(gca,'XTick');
+%             set(gca,'XTick',xt,'xticklabel',xt/1000)
             
-            % Set ylimit
-            st = std(yso);
-            ylim([min(yso) max(yso)]+st*[-0.5 0.5])
-            % Ginput the start and end points to calculate slope
-            title('Click the beginning and end each hill on either side of the popspike')
-%             pause % This allows for zooming the trace
-            [bounds,~] = ginput(4);
             
-            [h,tt,yy,ypi] = get_popspike_height(t,y,bounds,'auto',false);
+
+                
+                clf
+                
+                plot(t,y,'k')
+                hold all
+                plot(t,yso,'r')
+                
+                xlim([-2000 50000]) 
+                xt = get(gca,'XTick');
+                set(gca,'XTick',xt,'xticklabel',xt/1000)
+                % Set ylimit
+                st = std(yso);
+                ylim([min(yso) max(yso)]+st*[-0.5 0.5])
+                % Ginput the start and end points to calculate slope
+                title('Click the beginning and end each hill on either side of the popspike')
+                pause % This allows for zooming the trace
+                
+                [bounds,~] = ginput(4);
+            
+            
+%             bounds = fetch1(cstim.PopspikeEg(key),'popspike_bounds');
+            [h,tt,yy,ypi] = get_popspike_height(tmsec,y,bounds,'auto',false);
             if isnan(h)
                 h = -1;
             end
@@ -59,5 +82,6 @@ classdef FepspPopspike < dj.Relvar & dj.AutoPopulate
             self.insert(key)
             
         end
-    end    
+    end
+    
 end

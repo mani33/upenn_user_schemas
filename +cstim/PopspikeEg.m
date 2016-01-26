@@ -26,8 +26,6 @@ classdef PopspikeEg < dj.Relvar & dj.AutoPopulate
             [tt,yy] = fetchn(cstim.FpRespTrace(key),'t','y');
             n = length(tt);
             k = randperm(n);
-%             tt = tt(k(1:nKey));
-%             yy = yy(k(1:nKey));
             tb = zeros(nKey,4);
             Fs = fetch1(cont.Fp(key),'sampling_rate');
             N = nKey;
