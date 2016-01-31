@@ -51,7 +51,7 @@ classdef FepspPopspikeAuto < dj.Relvar & dj.AutoPopulate
             plot(tt(2),ypi,'m*')
             plot(tt(2),yy(2),'m*')
             plot(tt([1 3]),yy([1 3]),'k-')
-            plot([tt(2) tt(2)],[yy(2) ypi],'m','linewidth',2)
+            plot([tt(2) tt(2)],[yy(2) ypi],'color',rand(1,3),'linewidth',2)
             
             xlabel('Time(ms)')
             title('PopSpike')
