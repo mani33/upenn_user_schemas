@@ -1,6 +1,7 @@
 %{
 cstim.FepspPopspike (computed) # compute raising or falling slope of epsp
 -> cstim.FpRespTrace
+-> cstim.SmoothMethods
 ---
 popspike_height   : double       # popspike height in mV
 %}
@@ -9,7 +10,7 @@ classdef FepspPopspike < dj.Relvar & dj.AutoPopulate
     
     properties(Constant)
         table = dj.Table('cstim.FepspPopspike')
-        popRel = cstim.FpRespTrace - acq.EventsIgnore
+        popRel = (cstim.FpRespTrace - acq.EventsIgnore)*cstim.SmoothMethods
     end
     
     methods
@@ -23,15 +24,28 @@ classdef FepspPopspike < dj.Relvar & dj.AutoPopulate
             d = fetch(cstim.FpRespTrace(key)*cont.Fp,'y','t','sampling_rate');
             y = zscore(d.y);
             Fs = d.sampling_rate;
-            sk = cstim.getGausswin(0.5,1000*1/Fs);
-            yso = mconv(y,sk);
+            smn = key.smooth_method_num;
+            if smn == 0              
+                yso = y;
+                sk = [];
+            elseif smn == 1 % gauss win method
+                fp = fetch1(cstim.SmoothMethods(key),'filter_params');
+                kstd = fp.std_msec;
+                sk = cstim.getGausswin(kstd,1000*1/Fs);             
+                yso = mconv(y,sk);
+            else
+                error('Undefined smoothing method')
+            end
+%             sk = cstim.getGausswin(0.5,1000*1/Fs);
+            
             t = d.t/1000;
             satisfied = false;
             useExample = true;
             while ~satisfied
+                figure(1)
                 clf
                 plot(t,y,'k')
-                set(gcf,'Position',[47   856   948   482])
+%                 set(gcf,'Position',[47   856   948   482])
                 hold all
                 plot(t,yso,'r')
                 xlim([-2 50])
@@ -46,8 +60,8 @@ classdef FepspPopspike < dj.Relvar & dj.AutoPopulate
                 else
                     [bounds,~] = ginput(4);
                 end
-                [h,tt,yy,ypi] = get_popspike_height(t,y,bounds,'auto',false);
-               
+                [h,tt,yy,ypi] = get_popspike_height(t,y,bounds,'auto',false,'smooth_ker',sk);
+                
                 if isnan(h)
                     h = -1;
                 end
@@ -65,24 +79,12 @@ classdef FepspPopspike < dj.Relvar & dj.AutoPopulate
                 box off
                 
                 % Intelligent auto method
-            
-                    if (h > 2*egh) || (h < 0.33*egh) % something is not right
-                        useExample = false;
-                    else
-                        satisfied = true;
-                        useExample = true;
-                    end
-               
-%                 % See if you are satisfied. If, yes, simply hit Enter key; if
-%                 % not hit the 'n' key and you will be asked to select 4 points
-%                 v = input('Are you satisfied? Hit ENTER if yes; Hit any other key if no','s');
-%                 if isempty(v)
-%                     satisfied = true;
-%                 else
-%                     useExample = false;
-%                 end
-                
-            
+                if (h > 5*egh) || (h < 0.1*egh) % something is not right
+                    useExample = false;
+                else
+                    satisfied = true;
+                    useExample = true;
+                end
             end
             pause(0.1)
             self.insert(key)

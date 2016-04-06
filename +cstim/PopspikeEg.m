@@ -1,16 +1,18 @@
 %{
 cstim.PopspikeEg (computed) # slope computation window onset and offset
 -> cont.Chan
+-> cstim.SmoothMethods
 -----
 popspike_bounds: tinyblob # beginning and end time of each hill on either side of the popspike
 popspike_height: tinyblob # height of popspike
+
 %}
 
 classdef PopspikeEg < dj.Relvar & dj.AutoPopulate
     
     properties(Constant)
         table = dj.Table('cstim.PopspikeEg')
-        popRel = cont.Chan & cstim.FpRespTrace% !!! update the populate relation
+        popRel = (cont.Chan & cstim.FpRespTrace)*cstim.SmoothMethods% !!! update the populate relation
     end
     
     methods
@@ -23,22 +25,31 @@ classdef PopspikeEg < dj.Relvar & dj.AutoPopulate
         
         function makeTuples(self, key)
             % Randomly pick 5 keys and set example
-            nKey = 5;
+            nKey = 10;
             [ttd,yyd] = fetchn(cstim.FpRespTrace(key),'t','y');
             n = length(ttd);
-            k = randperm(n);
             tb = zeros(nKey,4);
             ph = zeros(1,nKey);
             Fs = fetch1(cont.Fp(key),'sampling_rate');
-            N = nKey;
             cc = 1;
-            i = 0;
-            while cc <= N
-                i = i+1;
-                j = k(i);
-                y = zscore(yyd{j});
-                t = ttd{j};
-                yso = mconv(y,cstim.getGausswin(0.5,1000*1/Fs));
+            gw = cstim.getGausswin(0.5,1000*1/Fs);
+            smn = key.smooth_method_num;
+            while cc <= nKey
+                rp = ceil(n*rand);
+                y = zscore(yyd{rp});
+                t = ttd{rp};
+                if smn == 0
+                    fy = y;
+                elseif smn == 1 % gauss win method
+                    fp = fetch1(cstim.SmoothMethods(key),'filter_params');
+                    kstd = fp.std_msec;
+                    sk = cstim.getGausswin(kstd,1000*1/Fs);
+                    fy = mconv(y,sk);
+                else
+                    error('Undefined smoothing method')
+                end
+                
+                yso = mconv(y,gw);
                 t = t/1000;
                 clf
                 
@@ -46,21 +57,15 @@ classdef PopspikeEg < dj.Relvar & dj.AutoPopulate
                 hold all
                 plot(t,yso,'r')
                 
-                xlim([-5 50]) 
-%                 xt = get(gca,'XTick');
-%                 set(gca,'XTick',xt,'xticklabel',xt/1000)
-                % Set ylimit
+                xlim([-5 50])
                 st = std(yso);
                 ylim([min(yso) max(yso)]+st*[-0.5 0.5])
                 % Ginput the start and end points to calculate slope
                 title('Click the beginning and end each hill on either side of the popspike')
-%                 pause % This allows for zooming the trace
-                
                 [tb(cc,:),~] = ginput(4);
+                [ph(cc),tt,yy,ypi] = get_popspike_height(t,fy,tb(cc,:),'auto',false);
                 
-                 [ph(cc),tt,yy,ypi] = get_popspike_height(t,y,tb(cc,:),'auto',false);
-               
-   
+                
                 hold on
                 col = rand(1,3);
                 plot(tt(2),ypi,'*','color',col)
@@ -69,15 +74,16 @@ classdef PopspikeEg < dj.Relvar & dj.AutoPopulate
                 plot([tt(2) tt(2)],[yy(2) ypi],'color',col,'linewidth',4)
                 pause(0.2)
                 
-                % If you want to skip the trace, just click at least one
-                % point on the negative time side
-                if all(tb(cc,:)> 0)
-                    cc = cc+1;
+                % If you want to skip the trace, hit any key other than
+                % ENTER
+                redoit = input('Is the slope ok? If yes, press ENTER, if no, press any other key','s');
+                if isempty(redoit)
+                    cc = cc + 1;
                 end
             end
-                       
+            
             key.popspike_height = median(ph);
-            key.popspike_bounds = median(tb,1);            
+            key.popspike_bounds = median(tb,1);
             %!!! compute missing fields for key here
             self.insert(key)
         end

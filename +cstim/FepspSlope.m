@@ -2,6 +2,7 @@
 cstim.FepspSlope (computed) # compute raising or falling slope of epsp
 -> cstim.FpRespTrace
 -> cstim.SlopeParams
+-> cstim.SmoothMethods
 ---
 fepsp_slope                 : double                        # slope of epsp mV/ms
 slope_onset                 : double                        # onset of slope measurement (uS)
@@ -11,7 +12,7 @@ classdef FepspSlope < dj.Relvar & dj.AutoPopulate
     
     properties(Constant)
         table = dj.Table('cstim.FepspSlope')
-        popRel = (cstim.FpRespTrace - acq.EventsIgnore)*cstim.SlopeParams  % !!! update the populate relation
+        popRel = (cstim.FpRespTrace - acq.EventsIgnore)*cstim.SlopeParams*cstim.SmoothMethods  % !!! update the populate relation
     end
     
     methods
@@ -26,7 +27,7 @@ classdef FepspSlope < dj.Relvar & dj.AutoPopulate
             y = d.y;
             Fs = d.sampling_rate;
             sk = cstim.getGausswin(0.5,1000*1/Fs);
-            
+            smn = key.smooth_method_num;
             satisfied = false;
             useExample = true;
             
@@ -34,10 +35,21 @@ classdef FepspSlope < dj.Relvar & dj.AutoPopulate
                 clf
                 t = d.t;
                 y = y - mean(y(t>2500 & t<4000));
-                yso = mconv(y,sk);
+                if smn == 0
+                    fy = y;
+                elseif smn == 1 % gauss win method
+                    fp = fetch1(cstim.SmoothMethods(key),'filter_params');
+                    kstd = fp.std_msec;
+                    sk = cstim.getGausswin(kstd,1000*1/Fs);
+                    fy = mconv(y,sk);
+                else
+                    error('Undefined smoothing method')
+                end
                 
+                yso = mconv(y,sk);
                 plot(t,y,'b')
-                set(gcf,'Position',[1147         677        1355         618])
+%                 set(gcf,'Position',[1147         677        1355         618])
+                shg
                 hold all
                 plot(t,yso,'k')
                 
@@ -51,20 +63,12 @@ classdef FepspSlope < dj.Relvar & dj.AutoPopulate
                 % time points 2 ms and 25 ms
                 m2ind = t>2000 & t < 25000;
                 btr = cat(1,dy(m2ind(2:end)),y(m2ind));
-                %             st = std(yso);
-                %             ylim([min(yso) max(yso)]+0.5*[-st st])
                 ylim([min(btr) max(btr)])
                 xt = get(gca,'XTick');
                 set(gca,'XTick',xt,'xticklabel',xt/1000)
                 
                 % Manual selection of window to compute slope
                 title('Slope Measurement')
-                
-                %             % Ginput the start and end points to calculate slope
-                %             [tb,~] = ginput(1);
-                %             % Extract the trace between the bounds and fit a linear model
-                %             % and get the slope
-                %             sind = t>=tb & t<=(tb+key.slope_win);
                 sdy = mconv(dy,sk);
                 
                 if useExample
@@ -76,10 +80,6 @@ classdef FepspSlope < dj.Relvar & dj.AutoPopulate
                     on = v2(1);
                     off = v2(2);
                 end
-                
-                
-                %             [on,~] = ginput(1);
-                %             off = on+key.slope_win;
                 sind = (t>on) & (t < off);
                 vind = find(sind);
                 [~,ind] = max(abs(sdy(sind)));
@@ -88,7 +88,7 @@ classdef FepspSlope < dj.Relvar & dj.AutoPopulate
                 % now correct sind based on this peak
                 sind = 1+(round((-(n+1)/2)):round((n/2)))+ pkInd;
                 ts = t(sind);
-                ys = y(sind);
+                ys = fy(sind);
                 X = [ts*1e-6,ones(size(ts))];
                 B = regress(ys,X);
                 slope = B(1);
@@ -99,16 +99,33 @@ classdef FepspSlope < dj.Relvar & dj.AutoPopulate
                 plot([X(end,1) X(end,1)]*1e6,ylim,'k--')
                 sv = find(sind);
                 key.slope_onset = t(sv(1));
-                % 
+                %
                 egmu = mean(egSlopes);
+                egSign = sign(egmu);
+                slopeSign = sign(slope);
                 egstd = std(egSlopes);
-                if (slope > (egmu+3*egstd)) || (slope < (egmu-3*egstd)) % something is not right
-                    useExample = false;
-                else
-                    satisfied = true;
-                    useExample = true;
-                end
                 
+                
+                if (egSign ~= slopeSign)
+                    useExample = false;
+                    flippedSlope = true;
+                else
+                    flippedSlope = false;
+                    if (slope > (egmu+7*egstd)) || (slope < (egmu-7*egstd)) % something is not right
+                        useExample = false;
+                    else
+                        satisfied = true;
+                        useExample = true;
+                    end
+                end
+                if flippedSlope
+                    redoit = input('Is the slope ok? If yes, press ENTER, if no, press any other key','s');
+                    if isempty(redoit)
+                        satisfied = true;
+                    else
+                        satisfied = false;
+                    end
+                end
             end
             self.insert(key)
             pause(0.1)

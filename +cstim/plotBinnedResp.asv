@@ -1,0 +1,28 @@
+function [t,traces] = plotBinnedResp( key, chan, binwidth, varargin )
+%PLOTBINNEDRESP Plot epsp response averaged over a small time window
+%   Detailed explanation goes here
+% Inputs: 
+% key - database key that restricts the fepsp trace tuples
+% chan - channel number
+% binwidth - in minutes, to bin the responses
+% Outputs:
+% t - time in milli sec
+% traces - raw averaged traces
+% Mani Subramaniyan 2016-04-05
+args.trace_bounds = [-5 30];
+[et,y,t] = fetch(cstim.FpRespTrace(key),'event_ts','y','t');
+et = double(et);
+[et,ind] = sort(et);
+y = y(ind);
+t = t(ind);
+% Zero the time to stimulation onset
+t = cellfun(@(t,t0) (t-t0)*1e-3, t,et, 'uni',false);
+% Select the trace between given time points
+tr = arrayfun(@(y,t) y(t >= args.trace_bounds(1) & ...
+    t <= args.trace_bounds(2)), y,t, 'uni',false);
+
+% Now, format time into minutes
+et = format_time(et);
+
+end
+
