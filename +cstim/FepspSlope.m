@@ -33,7 +33,7 @@ classdef FepspSlope < dj.Relvar & dj.AutoPopulate
             
             while ~satisfied
                 clf
-                t = d.t;
+                t = d.t; % microsec
                 y = y - mean(y(t>2500 & t<4000));
                 if smn == 0
                     fy = y;
@@ -68,7 +68,8 @@ classdef FepspSlope < dj.Relvar & dj.AutoPopulate
                 set(gca,'XTick',xt,'xticklabel',xt/1000)
                 
                 % Manual selection of window to compute slope
-                title('Slope Measurement')
+                cname = fetch1(cont.Chan(d),'chan_name');
+                title(sprintf('Slope Measurement for %s',cname))
                 sdy = mconv(dy,sk);
                 
                 if useExample
@@ -111,12 +112,12 @@ classdef FepspSlope < dj.Relvar & dj.AutoPopulate
                     flippedSlope = true;
                 else
                     flippedSlope = false;
-                    if (slope > (egmu+7*egstd)) || (slope < (egmu-7*egstd)) % something is not right
-                        useExample = false;
-                    else
+%                     if (slope > (egmu+15*egstd)) || (slope < (egmu-15*egstd)) % something is not right
+%                         useExample = false;
+%                     else
                         satisfied = true;
                         useExample = true;
-                    end
+%                     end
                 end
                 if flippedSlope
                     redoit = input('Is the slope ok? If yes, press ENTER, if no, press any other key','s');

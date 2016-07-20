@@ -26,7 +26,7 @@ classdef SlopeEg < dj.Relvar & dj.AutoPopulate
         
         function makeTuples(self, key)
             % Randomly pick 10 keys and set example
-            nKey = 10;
+            nKey = 5;
             [tt,yy] = fetchn(cstim.FpRespTrace(key),'t','y');
             n = length(tt);
             tb = zeros(nKey,2);            

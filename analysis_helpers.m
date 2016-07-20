@@ -1,9 +1,13 @@
 %%
+% close all
+ch = 12:15;
 for i = 1:4
-    x = fetchn(cstim.FpRespTrace(key,sprintf('chan_num = %d',11+i)),'y');
+    x = fetchn(cstim.FpRespTrace(key,sprintf('chan_num = %d',ch(i))),'y');
+    x = x(1:10);
     x = cellfun(@(x) x(1:2470),x,'uni',false);
     xx = [x{:}];
     subplot(2,2,i)
+    hold all;
     plot(mean(xx,2))
 end
 shg
