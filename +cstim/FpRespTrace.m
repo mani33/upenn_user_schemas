@@ -12,7 +12,7 @@ t       : longblob         # time points relative to event onset
 classdef FpRespTrace < dj.Relvar & dj.AutoPopulate
     properties(Constant)
         table = dj.Table('cstim.FpRespTrace');
-        popRel = cont.Fp * acq.Events('event_ttl = 128') * cstim.PeriEventTimes
+        popRel = cont.Fp * acq.Events('event_ttl in (1, 128)') * cstim.PeriEventTimes
     end
     
     methods

@@ -12,7 +12,7 @@ classdef FepspSlope < dj.Relvar & dj.AutoPopulate
     
     properties(Constant)
         table = dj.Table('cstim.FepspSlope')
-        popRel = (cstim.FpRespTrace - acq.EventsIgnore)*cstim.SlopeParams*cstim.SmoothMethods  % !!! update the populate relation
+        popRel = ((cstim.FpRespTrace)*cstim.SlopeParams*cstim.SmoothMethods)&cstim.SlopeEg  % !!! update the populate relation
     end
     
     methods
@@ -48,8 +48,8 @@ classdef FepspSlope < dj.Relvar & dj.AutoPopulate
                 
                 yso = mconv(y,sk);
                 plot(t,y,'b')
-%                 set(gcf,'Position',[1147         677        1355         618])
-                shg
+                %                 set(gcf,'Position',[1147         677        1355         618])
+%                 shg
                 hold all
                 plot(t,yso,'k')
                 
@@ -83,8 +83,25 @@ classdef FepspSlope < dj.Relvar & dj.AutoPopulate
                 end
                 sind = (t>on) & (t < off);
                 vind = find(sind);
-                [~,ind] = max(abs(sdy(sind)));
-                pkInd = vind(ind);
+                %                 [~,ind] = max(abs(sdy(sind)));
+                %                 pkInd = vind(ind);
+                
+                % Find biggest peak
+                nsamples = 2/(1000*1/Fs); % no peak within 2 ms
+                [pk1,locs1] = findpeaks(dy(sind),'MINPEAKDISTANCE',nsamples);
+                [pk2,locs2] = findpeaks(-dy(sind));
+                locs = [locs1; locs2];
+                pk = [pk1; pk2];
+                if isempty(pk)
+                    satisfied = false;
+                    useExample = false;
+                    continue
+                end
+                [~,ind] = max(pk);
+                % Sort by location and take the first peak
+                pkInd = vind(locs(ind));%
+                
+                
                 n = round(key.slope_win*1e-6/(1/Fs));
                 % now correct sind based on this peak
                 sind = 1+(round((-(n+1)/2)):round((n/2)))+ pkInd;
@@ -104,7 +121,7 @@ classdef FepspSlope < dj.Relvar & dj.AutoPopulate
                 egmu = mean(egSlopes);
                 egSign = sign(egmu);
                 slopeSign = sign(slope);
-                egstd = std(egSlopes);
+                %                 egstd = std(egSlopes);
                 
                 
                 if (egSign ~= slopeSign)
@@ -112,12 +129,12 @@ classdef FepspSlope < dj.Relvar & dj.AutoPopulate
                     flippedSlope = true;
                 else
                     flippedSlope = false;
-%                     if (slope > (egmu+15*egstd)) || (slope < (egmu-15*egstd)) % something is not right
-%                         useExample = false;
-%                     else
-                        satisfied = true;
-                        useExample = true;
-%                     end
+                    %                     if (slope > (egmu+15*egstd)) || (slope < (egmu-15*egstd)) % something is not right
+                    %                         useExample = false;
+                    %                     else
+                    satisfied = true;
+                    useExample = true;
+                    %                     end
                 end
                 if flippedSlope
                     redoit = input('Is the slope ok? If yes, press ENTER, if no, press any other key','s');
